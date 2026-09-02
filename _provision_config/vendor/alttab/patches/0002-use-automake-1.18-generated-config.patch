@@ -1,0 +1,13 @@
+diff --git a/configure b/configure
+index b4d92e4..bbde871 100755
+--- a/configure
++++ b/configure
+@@ -2372,7 +2372,7 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
+ ac_compiler_gnu=$ac_cv_c_compiler_gnu
+ 
+ 
+-am__api_version='1.16'
++am__api_version='1.18'
+ 
+ 
+ 

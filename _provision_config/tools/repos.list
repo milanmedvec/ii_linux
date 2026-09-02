@@ -1,0 +1,14 @@
+# name url [ref]
+tool_browser_selector https://github.com/milanmedvec/tool_browser_selector.git 07f0a91f1c5272b7db1f0307bf084b07f3aaacee
+tool_chrome_sessions https://github.com/milanmedvec/tool_chrome_sessions.git e5ae8060d9208b997d0cde231af3dfeb6948cfea
+tool_clipboard https://github.com/milanmedvec/tool_clipboard.git 0e751683a0fb7f47f9b437cea5ccffe576e92e01
+tool_cm https://github.com/milanmedvec/tool_cm.git 71f8b9e9e248286fb7faba38204f94e1205fce5a
+tool_cwd_bookmarks https://github.com/milanmedvec/tool_cwd_bookmarks.git 05843bc2cf3055d1d64219ffa752026a5ee7fca9
+tool_desktop_glue https://github.com/milanmedvec/tool_desktop_glue.git b8081e0a7908a2a7bd95e6d7a8ce379864ca50ea
+tool_desktop_launchers https://github.com/milanmedvec/tool_desktop_launchers.git c19cc3e5317f7b1b77e23be8b7ed18b30a849645
+tool_git_browser https://github.com/milanmedvec/tool_git_browser.git 8719e0872ccc42fec69c5b436dcfd665c5e3d1a9
+tool_i3_display https://github.com/milanmedvec/tool_i3_display.git f5dd83bd5b1e972a8037024c328fa65791388ebf
+tool_i3_volume https://github.com/milanmedvec/tool_i3_volume.git c6d1e5b193808b6e43a603306804426fae9da0e5
+tool_screen_record https://github.com/milanmedvec/tool_screen_record.git c755e23cfba1ae2ba632f9cea9c3865865db9f77
+tool_spotify https://github.com/milanmedvec/tool_spotify.git 259ebcb5ad1cf69f697bb0235420d0f41e3b948d
+tool_term_toggle https://github.com/milanmedvec/tool_term_toggle.git 9178351b8e6f72a556ecfee5fffc3d0014a4e282

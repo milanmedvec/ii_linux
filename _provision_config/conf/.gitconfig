@@ -1,0 +1,7 @@
+[user]
+	email = mail@milanmedvec.cz
+	name = Milan Medvec
+[core]
+	editor = nano
+[init]
+	defaultBranch = main

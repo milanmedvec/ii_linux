@@ -1,0 +1,162 @@
+#!/bin/sh
+
+BB=/bin/busybox
+HOSTNAME="@HOSTNAME@"
+SETUP_NETWORK="@SETUP_NETWORK@"
+NET_IFACE="@NET_IFACE@"
+DHCP_TRIES="@DHCP_TRIES@"
+RUNTIME_MODULES="@RUNTIME_MODULES@"
+X11_INPUT_MODULES="@X11_INPUT_MODULES@"
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export TERM=linux
+
+mount_if_needed() {
+  target="$1"
+  type="$2"
+  source="$3"
+  opts="${4:-}"
+
+  $BB mkdir -p "$target"
+  if ! $BB grep -qs " $target " /proc/mounts 2>/dev/null; then
+    if [ -n "$opts" ]; then
+      $BB mount -t "$type" -o "$opts" "$source" "$target" 2>/dev/null || true
+    else
+      $BB mount -t "$type" "$source" "$target" 2>/dev/null || true
+    fi
+  fi
+}
+
+setup_runtime_mounts() {
+  echo "==> Runtime mounts"
+
+  $BB mkdir -p /dev/pts /dev/shm /tmp /run /sys/fs/cgroup
+  mount_if_needed /dev/pts devpts devpts
+  mount_if_needed /tmp tmpfs tmpfs "mode=1777,nosuid,nodev"
+  mount_if_needed /dev/shm tmpfs tmpfs
+  mount_if_needed /run tmpfs tmpfs
+  mount_if_needed /sys/fs/cgroup cgroup2 none
+  $BB mkdir -p /tmp/.X11-unix
+  $BB chmod 1777 /tmp /dev/shm /tmp/.X11-unix 2>/dev/null || true
+}
+
+shutdown_system() {
+  action="$1"
+  echo "==> Clean shutdown: $action" >/dev/console 2>/dev/null || true
+
+  $BB touch /run/shutdown-in-progress 2>/dev/null || true
+  $BB sync
+
+  # Ask regular processes to exit, then force remaining ones down.
+  $BB kill -TERM -1 2>/dev/null || true
+  $BB sleep 3
+  $BB kill -KILL -1 2>/dev/null || true
+  $BB sleep 1
+
+  $BB sync
+  $BB umount -a -r 2>/dev/null || true
+  $BB mount -o remount,ro / 2>/dev/null || true
+  $BB sync
+
+  case "$action" in
+    reboot) $BB reboot -f ;;
+    poweroff) $BB poweroff -f ;;
+    halt) $BB halt -f ;;
+  esac
+}
+
+start_initctl() {
+  $BB rm -f /run/initctl 2>/dev/null || true
+  $BB mkfifo /run/initctl 2>/dev/null || true
+  $BB chmod 600 /run/initctl 2>/dev/null || true
+
+  while true; do
+    if read action </run/initctl; then
+      case "$action" in
+        reboot|poweroff|halt) shutdown_system "$action" ;;
+      esac
+    fi
+  done &
+}
+
+$BB mkdir -p /proc /sys /dev /tmp
+$BB mount -t proc proc /proc 2>/dev/null || true
+$BB mount -t sysfs sysfs /sys 2>/dev/null || true
+$BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+setup_runtime_mounts
+start_initctl
+$BB mkdir -p /run/udev
+$BB hostname "$HOSTNAME" 2>/dev/null || true
+
+for module in $RUNTIME_MODULES; do
+  modprobe "$module" 2>/dev/null || $BB modprobe "$module" 2>/dev/null || true
+done
+
+for module in $X11_INPUT_MODULES; do
+  modprobe "$module" 2>/dev/null || $BB modprobe "$module" 2>/dev/null || true
+done
+
+if command -v udevd >/dev/null 2>&1; then
+  udevd --daemon 2>/dev/null || true
+fi
+
+if command -v udevadm >/dev/null 2>&1; then
+  udevadm trigger 2>/dev/null || true
+  udevadm settle 2>/dev/null || true
+fi
+
+[ -e /dev/dri/card0 ] && $BB chgrp video /dev/dri/card0 2>/dev/null && $BB chmod 660 /dev/dri/card0 2>/dev/null || true
+[ -e /dev/dri/renderD128 ] && $BB chgrp render /dev/dri/renderD128 2>/dev/null && $BB chmod 660 /dev/dri/renderD128 2>/dev/null || true
+for snd_device in /dev/snd/*; do
+  [ -e "$snd_device" ] || continue
+  $BB chgrp audio "$snd_device" 2>/dev/null && $BB chmod 660 "$snd_device" 2>/dev/null || true
+done
+for video_device in /dev/video* /dev/media*; do
+  [ -e "$video_device" ] || continue
+  $BB chgrp video "$video_device" 2>/dev/null && $BB chmod 660 "$video_device" 2>/dev/null || true
+done
+for i2c_device in /dev/i2c-*; do
+  [ -e "$i2c_device" ] || continue
+  $BB chgrp i2c "$i2c_device" 2>/dev/null && $BB chmod 660 "$i2c_device" 2>/dev/null || true
+done
+for event_device in /dev/input/event*; do
+  [ -e "$event_device" ] || continue
+  $BB chgrp input "$event_device" 2>/dev/null && $BB chmod 660 "$event_device" 2>/dev/null || true
+done
+for tty_device in /dev/tty /dev/tty0 /dev/tty1 /dev/tty2 /dev/tty3 /dev/tty4 /dev/tty5 /dev/tty6; do
+  [ -e "$tty_device" ] || continue
+  $BB chgrp tty "$tty_device" 2>/dev/null || true
+done
+
+$BB ip link set lo up 2>/dev/null || true
+
+if [ "$SETUP_NETWORK" = "1" ]; then
+  iface="$NET_IFACE"
+
+  if [ -z "$iface" ]; then
+    for path in /sys/class/net/*; do
+      [ -e "$path" ] || continue
+      candidate="${path##*/}"
+      [ "$candidate" != "lo" ] || continue
+      iface="$candidate"
+      break
+    done
+  fi
+
+  if [ -n "$iface" ]; then
+    $BB ip link set "$iface" up 2>/dev/null || true
+
+    if [ -x /usr/share/udhcpc/default.script ]; then
+      $BB udhcpc -i "$iface" -s /usr/share/udhcpc/default.script -q -t "$DHCP_TRIES" 2>/dev/null || true
+    else
+      $BB udhcpc -i "$iface" -q -t "$DHCP_TRIES" 2>/dev/null || true
+    fi
+  fi
+fi
+
+$BB echo "Starting login on tty1." >/dev/tty1 2>/dev/null || true
+
+while true; do
+  $BB setsid $BB getty 38400 tty1 linux
+  $BB sleep 1
+done
